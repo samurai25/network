@@ -1,0 +1,413 @@
+{% extends "network/layout.html" %}
+
+{% load static %}
+
+{% block body %}
+
+    <h2>All Posts</h2>
+
+    <div id="app"></div>
+    
+    <script type="text/babel">
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    // Does this cookie string begin with the name we want?
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+
+
+        function DjangoCSRFToken() {
+            return (
+                <input type="hidden" name="csrfmiddlewaretoken" value={csrftoken} />
+            );
+        };
+
+        const newPostStyles = {
+            padding: '15px'
+        };
+
+        function PostForm() {
+            return (
+                <div>
+                    {{ form }}
+                </div>
+            );
+        }
+
+        function NewPost() {
+            
+            return (
+                <div>
+                    <form style={newPostStyles} action="{% url 'network:new_post' %}" method="post">
+                        <DjangoCSRFToken />
+                        <PostForm />
+                        <input type="submit" class="btn btn-primary" value="Post" />
+                    </form>
+                </div>
+            );
+
+        };
+
+
+        const editButtonStyles = {
+            border: "none",
+            color: "blue",
+            backgroundColor: "white",
+            padding: "0",
+            outline: "none",
+            marginTop: "10px"
+            
+        };
+
+        const btnLikeStyles = {
+            border: 'none',
+            outline: 'none',
+            backgroundColor: 'white',
+            padding: "0",
+            marginRight: "5px",
+            marginTop: "-20px"
+        };
+
+        const colorStyles = {
+            color: "grey",
+            marginBottom: "0"
+        };
+
+        const divStyles = {
+            border: "1px solid grey",
+            borderRadius: "5px",
+            padding: "15px",
+            margin: "15px",
+        };
+        
+        const numberStyles = {
+            color: "gray"
+        }
+
+        function Pagination(props) {
+       
+            const pageNumbers = [];
+
+            for (let i = 1; i <= Math.ceil(props.totalPosts / props.postsPerPage); i++) {
+                pageNumbers.push(i);
+            }
+
+            const isActive = {
+                backgroundColor: 'orange',
+                color: 'white',
+                outline: 'none',
+                border: 'none'
+            }
+
+
+            return (
+                <div>
+                    <ul className="pagination">
+                        {
+                            pageNumbers.map(number => (
+                                <li className="page-item" key={number}>
+                                    {number == props.currentPage ?
+                                    <a style={isActive} className="page-link" href="#" onClick={() => props.paginate(number)}>
+                                        <span>{number}</span>
+                                    </a>
+                                    :
+                                    <a className="page-link" href="#" onClick={() => props.paginate(number)}>
+                                        <span style={numberStyles}>{number}</span>
+                                    </a>
+                                    }
+                                </li>
+                            ))
+                            
+                        }
+                    </ul>
+                </div>
+            );
+        };
+
+
+        function Posts(props) {
+            const [isEdit, setIsEdit] = React.useState(false);
+            const [clickedPost, setClickedPost] = React.useState(null);
+            const [content, setContent] = React.useState([]);
+            const [saveContent, setSaveContent] = React.useState(null);
+
+            if (props.loading) {
+                return <div>Loading...</div>;
+            }
+
+            const handleEditClick = async (event) => {
+                console.log(event.target.value);
+                const post_id = parseInt(event.target.value);
+
+                if (isEdit) {
+                    setIsEdit(false);
+                    setClickedPost(null);
+
+                } else {
+                    setIsEdit(true);
+                    setClickedPost(post_id);
+                }
+            };
+
+            const handleSaveClick = async (event) => {
+                if (event.target) {
+                    const post_id = parseInt(event.target.value);
+                    console.log(event.target.value);
+                    setIsEdit(false);
+                    console.log('clicked');
+                    console.log(post_id);
+
+                    if (saveContent) {
+                        try {
+                            const response = await fetch("http://127.0.0.1:8000/edit", {
+                                method: 'POST',
+                                body: JSON.stringify({
+                                    'post_id': post_id,
+                                    'content': saveContent
+                                }),
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRFToken': csrftoken,
+                                } 
+                            });
+                            const data = await response.json();
+                            console.log(data);
+
+                            setContent(data);    
+                            setSaveContent(null);
+                            return data;
+                        } catch (err) { 
+                            console.log("Error fetching post data: ", err);
+                            return;
+                        }    
+                    }
+                    
+
+                }
+            }
+
+
+            const usernameStyles = {
+                textDecoration: 'none',
+                color: 'black',
+                fontWeight: 'bold',
+                fontSize: '1.2em'
+            }
+            
+            const pStyles = {
+                marginBottom: "0",
+            }
+
+            return (
+                <div>
+                    {props.posts.map(post => (
+                        <div key={post.id} style={divStyles}>
+                            <a style={usernameStyles} href={'/profile/' + post.username + '/'}>{post.username}</a>
+                            {"{{user.username}}" == post.username ? 
+                                <div>
+                                    <button type="button" style={editButtonStyles} onClick={handleEditClick} value={post.id}>Edit</button>
+                                </div>
+                            : ''}
+                            
+                            {isEdit && clickedPost == post.id ? 
+                            <div>
+                                <textarea className="form-control" onChange={() => setSaveContent(event.target.value)} id={post.id} rows="5" cols="50">{post.content}</textarea>
+                                <button type="button" className="btn btn-primary" onClick={handleSaveClick} value={post.id}>Save</button>
+                            </div> : 
+                            <p style={pStyles}>{content.post_id == post.id ? content.content : post.content}</p>}
+                            <p style={colorStyles} className="content">{post.created_at}</p>
+                            
+                            {props.liked.includes(post.id) ? 
+                              <button style={btnLikeStyles} type="button" className="bi bi-heart-fill text-danger" onClick={props.handleLikeClick} id={post.id} value={post.id}></button>
+                            : <button style={btnLikeStyles} type="button" className="bi bi-heart" onClick={props.handleLikeClick} id={post.id} value={post.id}></button>}
+
+                            <span className="likes" style={colorStyles}>{post.likes}</span>
+                            <div>
+                                <span style={colorStyles}>Comment</span>
+                            </div>
+                        </div> 
+                    ))}
+                </div>
+            )
+        }
+
+        function App() {
+            const [posts, setPosts] = React.useState([]);
+            const [likes, setLikes] = React.useState([]);
+            const [isLoading, setIsLoading] = React.useState(false);
+            const [currentPage, setCurrentPage] = React.useState(1);
+            const [postsPerPage] = React.useState(10);
+            const [liked, setLiked] = React.useState([]);
+            
+
+            async function fetchPosts() {
+                console.log("Fetching data...");
+                try {
+                    setIsLoading(true);
+                    const response = await fetch("http://127.0.0.1:8000/fetch_data");
+                    const posts = await response.json();
+                    console.log('success', response.status);
+                    setPosts(posts);
+                    setIsLoading(false);
+                    return posts;
+                } catch (e) {
+                    console.log('Fetching data failed', e);     
+                    return;
+                }
+                     
+            }
+        
+            React.useEffect(() => {
+                fetchPosts();
+            }, []);
+
+            console.log("Fetched data.");
+            console.log(posts);
+
+
+            async function fetchLikes() {
+                console.log("Fetching likes...");
+                try {
+                    setIsLoading(true);
+                    const response = await fetch("http://127.0.0.1:8000/fetch_likes");
+                    const likes = await response.json();
+                    console.log('success', response.status);
+                    setLikes(likes);  
+                    for (let i = 0; i < likes.length; i++) {
+                        setLiked(prevState => [...prevState, likes[i].post_id]);
+                    }       
+                    setIsLoading(false);
+                    return likes;
+                } catch (e) {
+                    console.log('Fetching likes failed', e);     
+                    return;
+                }       
+            }
+
+
+            React.useEffect(() => {
+                fetchLikes();
+            }, []);
+
+            console.log("Fetched likes.");
+            console.log(likes);
+
+
+            const lastPostIndex = currentPage * postsPerPage;
+            const firstPostIndex = lastPostIndex - postsPerPage;
+            const currentPosts = posts.slice(firstPostIndex, lastPostIndex);
+            
+            const paginate = pageNumber => setCurrentPage(pageNumber);
+            const nextPage = () => setCurrentPage(prevState => {
+                if (prevState < Math.ceil(posts.length / postsPerPage)) {
+                    return prevState + 1;
+                }
+                else {
+                    return prevState;
+                }
+
+            });
+
+            const prevPage = () => setCurrentPage(prevState => {
+                if (prevState > 1) {
+                    return prevState - 1;
+                }
+                else {
+                    return prevState;
+                }
+            });
+
+            const postData = async (post_id) => {
+
+                try {
+                    const response = await fetch("http://127.0.0.1:8000/post_data", {
+                        method: 'POST',
+                        body: JSON.stringify({
+                            'post_id': post_id
+                        }),
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrftoken,
+                        } 
+                    });
+                    const data = await response.json();
+                    console.log(data);
+
+                    setLiked([...data["liked"]]);
+
+                    return data;
+                } catch (err) { 
+                    console.log("Error fetching post data: ", err);
+                    return;
+                }
+            }
+              
+            async function handleLikeClick(event) {
+                if (event.target.value) {
+                    console.log("Like clicked"); 
+                    console.log(event.target.value); 
+                    const post_id = parseInt(event.target.value);
+  
+                    for (let i = 0; i < posts.length; i++) {
+                        if (posts[i].id == post_id) {
+                            if (liked.includes(post_id)) {
+                                posts[i].likes -= 1;
+                            }
+                            else {
+                                posts[i].likes += 1;
+                            }
+                        }
+
+                        setPosts([...posts]);
+                    }
+
+                    const newData = await postData(post_id);
+                    
+                    return newData;
+                }
+                else {
+                    console.log("Error"); 
+                    return;
+                }   
+            }
+
+
+            return (
+                <div>
+                    <div style={divStyles}>
+                        <h3>New Post</h3>
+                        <NewPost />
+                    </div>
+
+                    <Posts posts={currentPosts} liked={liked} handleLikeClick={handleLikeClick} loading={isLoading} handleLikeClick={handleLikeClick} />
+                    
+                    <Pagination 
+                        postsPerPage={postsPerPage}
+                        totalPosts={posts.length}  
+                        paginate={paginate}
+                        currentPage={currentPage}
+                    />
+                    <button type="button" className="btn btn-light mr-1" onClick={prevPage}>Previous</button>
+                    <button type="button" className="btn btn-light" onClick={nextPage}>Next</button>
+                </div>
+            );
+        }
+
+        ReactDOM.render(<App />, document.querySelector('#app'));
+    </script>
+
+{% endblock %}
+
+    
