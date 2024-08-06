@@ -1,0 +1,29 @@
+# Django #
+*.log               
+*.pot               
+*.pyc               
+__pycache__/       
+local_settings.py   
+db.sqlite3         
+media/             
+
+# Virtual Environment #
+.env                
+venv/               
+env/                
+ENV/                
+
+# IDE-specific Files #
+.idea/
+.vscode/
+!.vscode/settings.json  
+!.vscode/tasks.json    
+!.vscode/launch.json    
+
+# Miscellaneous Files #
+*.bak               
+.coverage           
+.tox/              
+.ipynb_checkpoints/
+.DS_Store           
+Thumbs.db 
